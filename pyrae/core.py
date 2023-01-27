@@ -1,6 +1,6 @@
 import re
 from abc import ABC, abstractmethod
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 from bs4.element import Tag
 from copy import deepcopy
 from pyrae.util import nested_dictionary_set
@@ -278,13 +278,14 @@ class Sentence(FromHTML):
     """ A sentence made up of strings and instances of the Word class.
     """
     def __init__(self, html: str,
-                 ignore_tags: Sequence[str] = ()):
+                 ignore_tags: Sequence[str] = (), ignore_selectors: Sequence[str] = ()):
         """ Initializes a new instance of the Sentence class.
 
         :param html: HTML code that can be parsed into a sentence.
         :param ignore_tags: A sequence of tags to be ignored while parsing the sentence.
         """
         self._ignore_tags: Sequence[str] = ignore_tags
+        self._ignore_selectors: Sequence[str] = ignore_selectors
         super().__init__(html=html)
 
     def __repr__(self):
@@ -350,7 +351,12 @@ class Sentence(FromHTML):
             return
         self._reset()
         for tag in self._soup.contents[0].children:
-            if tag.name in self._ignore_tags:
+            if isinstance(tag, NavigableString):
+                tag_class = ''
+            else:
+                tag_class = tag['class'][0].lower() if tag.has_attr('class') else ''
+            selector = f"{tag.name}.{tag_class}" if tag_class else tag.name
+            if tag.name in self._ignore_tags or selector in self._ignore_selectors:
                 continue
             abbr = Abbr.from_html(html=str(tag))
             if abbr:
@@ -358,6 +364,7 @@ class Sentence(FromHTML):
                 continue
             word = Word.from_html(html=str(tag))
             if word:
+                print(word)
                 self._components.append(word)
                 continue
             self._components.append(tag.get_text() if isinstance(tag, Tag) else str(tag))
@@ -560,7 +567,7 @@ class Definition(FromHTML):
                 else:
                     # Another abbr to complement the main sentence of the definition
                     self._abbreviations.append(Abbr(html=str(tag)))
-        self._sentence = Sentence(html=str(self._soup.p), ignore_tags=('abbr', 'span'))
+        self._sentence = Sentence(html=str(self._soup.p), ignore_tags=('abbr',), ignore_selectors=('span.n_acep','span.h'))
         self._parsed = True
 
     def _reset(self):
