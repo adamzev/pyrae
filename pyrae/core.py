@@ -364,7 +364,6 @@ class Sentence(FromHTML):
                 continue
             word = Word.from_html(html=str(tag))
             if word:
-                print(word)
                 self._components.append(word)
                 continue
             self._components.append(tag.get_text() if isinstance(tag, Tag) else str(tag))
